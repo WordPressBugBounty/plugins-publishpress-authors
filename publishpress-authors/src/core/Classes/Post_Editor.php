@@ -112,7 +112,9 @@ class Post_Editor
         if ('authors' === $column) {
             // We need to ignore the cache for following call when this method were called after saved the post in a
             // quick edit operation, otherwise the authors column will show old values.
-            $authors = get_post_authors($post_id, true);
+            $recently_edited = get_transient("post_quick_edited_{$post_id}");
+            $ignoreCache = !empty($recently_edited);
+            $authors = get_post_authors($post_id, $ignoreCache);
 
             $post_type = get_post_type($post_id);
             $post      = get_post($post_id);
@@ -641,8 +643,12 @@ class Post_Editor
 
         if (!empty($post_ids) && !empty($authors)) {
             foreach ($post_ids as $post_id) {
+                if (!current_user_can('edit_post', $post_id)) {
+                    continue;
+                }
                 Utils::set_post_authors($post_id, $authors, true, $fallbackUserId);
                 Utils::set_post_authors($post_id, $authors, true, $fallbackUserId, $author_categories);
+                set_transient("post_quick_edited_{$post_id}", true, 60);
             }
 
             do_action('publishpress_authors_flush_cache_for_post', $post_ids);
@@ -667,11 +673,17 @@ class Post_Editor
             return;
         }
 
+        $taxonomy = get_taxonomy('author');
         if (
             !isset($_POST['authors-save'])
             || !wp_verify_nonce(sanitize_key($_POST['authors-save']), 'authors-save')
-            || !current_user_can(get_taxonomy('author')->cap->assign_terms)
+            || !$taxonomy
+            || !current_user_can($taxonomy->cap->assign_terms)
         ) {
+            return;
+        }
+
+        if (!current_user_can('edit_post', $post_id)) {
             return;
         }
 
@@ -833,6 +845,8 @@ class Post_Editor
     {
         wp_cache_flush_group('get_post_authors');
         wp_cache_flush_group('author_categories_relation_cache');
+        wp_cache_flush_group('publishpress_authors_user_checks');
+        wp_cache_flush_group('ppma_categorized_authors');
     }
 
     /**
@@ -866,5 +880,8 @@ class Post_Editor
             $authors_cache_key = 'authors_' . $post_id;
             wp_cache_delete($authors_cache_key, 'get_post_authors:authors');
         }
+
+        wp_cache_flush_group('publishpress_authors_user_checks');
+        wp_cache_flush_group('ppma_categorized_authors');
     }
 }

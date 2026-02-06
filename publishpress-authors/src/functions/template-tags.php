@@ -214,7 +214,14 @@ if (!function_exists('ppma_post_authors_categorized')) {
             return [];
         }
 
-        // TODO: Cache the result
+        $cache_key = 'categorized_authors_' . $postId . '_' . md5(serialize($category_slugs));
+
+        $cached_result = wp_cache_get($cache_key, 'ppma_categorized_authors');
+
+        if (false !== $cached_result) {
+            return $cached_result;
+        }
+
         $authors = get_post_authors($postId, true);
         $categorized_authors = [];
         $author_relations = get_ppma_author_relations(['post_id' => $postId, 'slug' => $category_slugs]);
@@ -239,6 +246,8 @@ if (!function_exists('ppma_post_authors_categorized')) {
             $categorized_authors = array_intersect_key($categorized_authors, $filtered_authors);
 
         }
+
+        wp_cache_set($cache_key, $categorized_authors, 'ppma_categorized_authors');
 
         return $categorized_authors;
     }
@@ -1032,6 +1041,15 @@ if (!function_exists('publishpress_authors_is_author_for_post')) {
             return false;
         }
 
+        $user_id = is_numeric($user) ? $user : $user->ID;
+        $cache_key = "is_author_{$post_id}_{$user_id}";
+
+        $found = false;
+        $cached_result = wp_cache_get($cache_key, 'publishpress_authors_user_checks', false, $found);
+        if ($found) {
+            return $cached_result;
+        }
+
         $currentPostType = get_post_type($post_id);
         $enabledPostTypes  = Utils::get_enabled_post_types();
 
@@ -1044,8 +1062,9 @@ if (!function_exists('publishpress_authors_is_author_for_post')) {
             } else {
                 $userId = $user->ID;
             }
-
-            return (int)$postAuthorId === (int)$userId;
+            $result = (int)$postAuthorId === (int)$userId;
+            wp_cache_set($cache_key, $result, 'publishpress_authors_user_checks');
+            return $result;
         }
 
         if (!isset($postAuthorsCache[$post_id])) {
@@ -1077,7 +1096,10 @@ if (!function_exists('publishpress_authors_is_author_for_post')) {
                 $userId = $user->ID;
             }
 
-            return (int)$post_author === (int)$userId;
+            $result = (int)$post_author === (int)$userId;
+            wp_cache_set($cache_key, $result, 'publishpress_authors_user_checks');
+
+            return $result;
         }
 
         foreach ($coauthors as $coauthor) {
@@ -1087,11 +1109,18 @@ if (!function_exists('publishpress_authors_is_author_for_post')) {
                 isset($coauthor->term_id) &&
                 $user_term->term_id == $coauthor->term_id
                 ) {
-                return true;
+
+                $result = true;
+                wp_cache_set($cache_key, $result, 'publishpress_authors_user_checks');
+
+                return $result;
             }
         }
 
-        return false;
+        $result = false;
+        wp_cache_set($cache_key, $result, 'publishpress_authors_user_checks');
+
+        return $result;
     }
 }
 
@@ -2148,6 +2177,32 @@ if (!function_exists('get_ppma_get_all_user_roles')) {
         }
 
         return $wp_roles->roles;
+    }
+}
+
+if (!function_exists('ppma_generate_slug')) {
+    /**
+     * Generate a URL-safe slug that preserves Arabic and other
+     * non-english characters #2185
+     *
+     * @param string $text The text to generate slug from
+     * @return string The generated slug
+     */
+    function ppma_generate_slug($text) {
+        // Convert to lowercase and replace spaces with hyphens
+        $slug = strtolower($text);
+        $slug = preg_replace('/\s+/', '-', $slug);
+
+        // Keep all Unicode letters, numbers, and hyphens
+        $slug = preg_replace('/[^\p{L}\p{N}-]/u', '', $slug);
+
+        // Replace multiple hyphens with single hyphen
+        $slug = preg_replace('/-+/', '-', $slug);
+
+        // Remove hyphens from start and end
+        $slug = trim($slug, '-');
+
+        return $slug;
     }
 }
 

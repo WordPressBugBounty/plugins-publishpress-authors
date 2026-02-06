@@ -508,7 +508,12 @@ class MA_Author_Boxes extends Module
 
         $messages[self::POST_TYPE_BOXES] = [
             'updated' => sprintf(
-                _n('%1$s %2$s updated.', '%1$s %3$s updated.', $countsUpdated),
+                _n(
+                    '%1$s %2$s updated.',
+                    '%1$s %3$s updated.',
+                    $countsUpdated,
+                    'publishpress-authors'
+                ),
                 $countsUpdated,
                 $postTypeNameSingular,
                 $postTypeNamePlural
@@ -517,26 +522,42 @@ class MA_Author_Boxes extends Module
                 _n(
                     '%1$s %2$s not updated, somebody is editing it.',
                     '%1$s %3$s not updated, somebody is editing them.',
-                    $countsLocked
+                    $countsLocked,
+                    'publishpress-authors'
                 ),
                 $countsLocked,
                 $postTypeNameSingular,
                 $postTypeNamePlural
             ),
             'deleted' => sprintf(
-                _n('%1$s %2$s permanently deleted.', '%1$s %3$s permanently deleted.', $countsDeleted),
+                _n(
+                    '%1$s %2$s permanently deleted.',
+                    '%1$s %3$s permanently deleted.',
+                    $countsDeleted,
+                    'publishpress-authors'
+                ),
                 $countsDeleted,
                 $postTypeNameSingular,
                 $postTypeNamePlural
             ),
             'trashed' => sprintf(
-                _n('%1$s %2$s moved to the Trash.', '%1$s %3$s moved to the Trash.', $countsTrashed),
+                _n(
+                    '%1$s %2$s moved to the Trash.',
+                    '%1$s %3$s moved to the Trash.',
+                    $countsTrashed,
+                    'publishpress-authors'
+                ),
                 $countsTrashed,
                 $postTypeNameSingular,
                 $postTypeNamePlural
             ),
             'untrashed' => sprintf(
-                _n('%1$s %2$s restored from the Trash.', '%1$s %3$s restored from the Trash.', $countsUntrashed),
+                _n(
+                    '%1$s %2$s restored from the Trash.',
+                    '%1$s %3$s restored from the Trash.',
+                    $countsUntrashed,
+                    'publishpress-authors'
+                ),
                 $countsUntrashed,
                 $postTypeNameSingular,
                 $postTypeNamePlural
@@ -1246,6 +1267,15 @@ class MA_Author_Boxes extends Module
 
         $editor_data['post_id'] = $post_id;
 
+        // set boxed_categories defautlt fields
+        if (
+        isset($editor_data['author_categories_layout'])
+        && $editor_data['author_categories_layout'] === 'boxed_categories'
+        && !isset($editor_data['author_bio_display_position'])
+        ) {
+            $editor_data['author_bio_display_position'] = 'first';
+        }
+
         //set social profile defaults
         $social_fields = ['facebook', 'twitter', 'x', 'instagram', 'linkedin', 'youtube', 'tiktok'];
         foreach ($social_fields as $social_field) {
@@ -1255,12 +1285,14 @@ class MA_Author_Boxes extends Module
             ) {
                 $editor_data['profile_fields_'.$social_field.'_display'] = 'icon';
             }
-            //set default ucon value
+            //set default icon value
             if (!isset($editor_data['profile_fields_'.$social_field.'_display_icon'])
                 || (isset($editor_data['profile_fields_'.$social_field.'_display_icon']) && empty($editor_data['profile_fields_'.$social_field.'_display_icon']))
             ) {
                 if ($social_field === 'tiktok') {
                     $editor_data['profile_fields_'.$social_field.'_display_icon'] = '<i class="fab fa-'.$social_field.'"></i>';
+                } elseif ($social_field === 'x') {
+                    $editor_data['profile_fields_'.$social_field.'_display_icon'] = '<i class="fab fa-x-twitter"></i>';
                 } else {
                     $editor_data['profile_fields_'.$social_field.'_display_icon'] = '<span class="dashicons dashicons-'.$social_field.'"></span>';
                 }
@@ -1587,6 +1619,19 @@ class MA_Author_Boxes extends Module
                 }
             endforeach;
         }
+
+        // Check display position setting
+        $display_position = !empty($args['author_bio_display_position']['value'])
+            ? $args['author_bio_display_position']['value']
+            : 'all';
+
+        // Check if bio should be hidden for author categories
+        $hide_for_categories = !empty($args['author_bio_hide_categories']['value'])
+            ? $args['author_bio_hide_categories']['value']
+            : [];
+
+        // Initialize global author index
+        $global_author_index = 0;
         ?>
 
         <?php if ($admin_preview) : ?>
@@ -1715,7 +1760,7 @@ class MA_Author_Boxes extends Module
                                                                 }
 
                                                                 if ($data['type'] === 'wysiwyg') {
-                                                                    $field_value = $author->$key;
+                                                                    $field_value = wpautop($author->$key);
                                                                 } else {
                                                                     $field_value = esc_html($author->$key);
                                                                 }
@@ -1924,15 +1969,34 @@ class MA_Author_Boxes extends Module
                                                                 endif ?>
                                                                 <?php echo $name_row_extra ; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
                                                                 <?php if ($args['author_bio_show']['value']) : ?>
+                                                                    <?php
+                                                                        // Check bio display position logic
+                                                                        $should_show_bio = true;
+                                                                        if ($display_position !== 'all') {
+                                                                            if ($display_position === 'first' && $global_author_index !== 0) {
+                                                                                $should_show_bio = false;
+                                                                            } elseif ($display_position === 'last' && $global_author_index !== $author_counts - 1) {
+                                                                                $should_show_bio = false;
+                                                                            }
+                                                                        }
+
+                                                                        // Check category override
+                                                                        if ($should_show_bio && !empty($hide_for_categories) && in_array($author_category_data['id'], $hide_for_categories)) {
+                                                                            $should_show_bio = false;
+                                                                        }
+                                                                    ?>
+
+                                                                    <?php if ($should_show_bio) :  ?>
                                                                         <<?php echo esc_html($args['author_bio_html_tag']['value']); ?> class="pp-author-boxes-description multiple-authors-description author-description-<?php echo esc_attr($index); ?>">
                                                                         <?php if ($args['author_bio_link']['value']) : ?>
                                                                             <a href="<?php echo esc_url($author->link); ?>" title="<?php echo esc_attr__('Author', 'publishpress-authors'); ?>">
                                                                         <?php endif; ?>
-                                                                            <?php echo $author->get_description($args['author_bio_limit']['value']);  // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                                                                            <?php echo wpautop($author->get_description($args['author_bio_limit']['value']));  // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
                                                                         <?php if ($args['author_bio_link']['value']) : ?>
                                                                             </a>
                                                                         <?php endif; ?>
                                                                         </<?php echo esc_html($args['author_bio_html_tag']['value']); ?>>
+                                                                    <?php endif; ?>
                                                                 <?php endif; ?>
                                                                 <?php echo $bio_row_extra ; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
@@ -1982,6 +2046,7 @@ class MA_Author_Boxes extends Module
                                                     <?php if ($li_style) : ?>
                                                         </li>
                                                     <?php endif; ?>
+                                                    <?php $global_author_index++; ?>
                                                 <?php endforeach; ?>
                                             <?php endif; ?>
                                         <?php if ($li_style) : ?>
@@ -2183,6 +2248,31 @@ class MA_Author_Boxes extends Module
                                 <?php echo esc_html($label); ?>
                             </option>
                         <?php endforeach; ?>
+                    </select>
+                <?php
+                elseif ('multiselect' === $args['type']) :
+                    $selected_values = is_array($args['value']) ? $args['value'] : [];
+                    $field_name = $key;
+                    ?>
+                    <select name="<?php echo esc_attr($field_name); ?>[]"
+                        style="width: 95%;"
+                        class="authors-select2 authors-select2-default-select"
+                        id="<?php echo esc_attr($key); ?>"
+                        placeholder="<?php echo esc_attr($args['placeholder']); ?>"
+                        data-placeholder="<?php echo esc_attr($args['placeholder']); ?>"
+                        <?php echo (isset($args['readonly']) && $args['readonly'] === true) ? 'readonly' : ''; ?>
+                        <?php echo 'multiple'; ?>
+                        />
+                        <?php
+                        if (!empty($args['options'])) :
+                            foreach ($args['options'] as $key => $label) : ?>
+                                <option value="<?php echo esc_attr($key); ?>"
+                                    <?php selected(in_array($key, $selected_values), true); ?>>
+                                    <?php echo esc_html($label); ?>
+                                </option>
+                            <?php
+                            endforeach;
+                        endif; ?>
                     </select>
                 <?php
                 elseif ('multiselect_pro' === $args['type']) :

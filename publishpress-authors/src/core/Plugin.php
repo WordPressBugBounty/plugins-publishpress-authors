@@ -113,6 +113,9 @@ class Plugin
         add_shortcode('publishpress_authors_data', [$this, 'shortcodeAuthorsData']);
         add_shortcode('publishpress_authors_list', [$this, 'shortcodeAuthorsList']);
 
+        // Register custom query var for pagination
+        add_filter('query_vars', [$this, 'add_ppma_page_query_var']);
+
         // Action to display the author box
         add_action('pp_multiple_authors_show_author_box', [$this, 'action_echo_author_box'], 10, 5);
 
@@ -1307,6 +1310,11 @@ class Plugin
                 //Jannah theme support multiple author but with global $authordata been set by the theme
                 $authors = [$authordata];
             } else {
+                $enabledPostTypes = Utils::get_enabled_post_types();
+                $postType = get_post_type();
+                if ($postType && !in_array($postType, $enabledPostTypes)) {
+                    return $authorDisplayName;
+                }
                 $authors = get_post_authors(get_post());
             }
 
@@ -1436,59 +1444,61 @@ class Plugin
         }
 
         if (!empty($query->query_vars['search'])) {
-            $search = trim($query->query_vars['search'], '*');
-            $search_parts = preg_split('/\s+/', $search);
+            $search = trim($query->query_vars['search']);
+            $query->query_vars['custom_author_search'] = $search;
 
-            $meta_query = ['relation' => 'AND'];
-
-            foreach ($search_parts as $part) {
-                $meta_query[] = [
-                    'relation' => 'OR',
-                    [
-                        'key' => 'first_name',
-                        'value' => $part,
-                        'compare' => 'LIKE'
-                    ],
-                    [
-                        'key' => 'last_name',
-                        'value' => $part,
-                        'compare' => 'LIKE'
-                    ],
-                    [
-                        'key' => 'user_email',
-                        'value' => $part,
-                        'compare' => 'LIKE'
-                    ]
-                ];
-            }
-
-            $query->query_vars['meta_query'] = $meta_query;
-            $query->query_vars['custom_term_search'] = $search;
-
+            // Prevent WordPress default search
             unset($query->query_vars['search']);
         }
     }
 
     public function include_term_name_in_search($clauses, $taxonomies, $args) {
-        global $pagenow, $wpdb;
+        global $wpdb, $pagenow;
 
         if (
             ! is_admin() ||
             $pagenow !== 'edit-tags.php' ||
-            (isset($_GET['taxonomy']) && $_GET['taxonomy'] !== self::$coauthor_taxonomy) ||
-            ! isset($args['taxonomy']) ||
-            ! in_array(self::$coauthor_taxonomy, (array)$args['taxonomy']) ||
-            empty($args['custom_author_search'])
+            empty($args['custom_author_search']) ||
+            empty($args['taxonomy']) ||
+            ! in_array(self::$coauthor_taxonomy, (array)$args['taxonomy'])
         ) {
             return $clauses;
         }
 
-        $search = esc_sql($wpdb->esc_like($args['custom_author_search']));
+        $search = trim($args['custom_author_search']);
+        $search_parts = preg_split('/\s+/', $search);
 
-        $clauses['where'] .= $wpdb->prepare(
-            " OR t.name LIKE %s",
-            '%' . $search . '%'
-        );
+        $taxonomy = esc_sql(self::$coauthor_taxonomy);
+
+        $or_clauses = [];
+
+        foreach ($search_parts as $part) {
+            $esc = $wpdb->esc_like($part);
+
+            // Search term name or slug
+            $or_clauses[] = $wpdb->prepare("t.name LIKE %s", "%$esc%");
+            $or_clauses[] = $wpdb->prepare("t.slug LIKE %s", "%$esc%");
+
+            // Search meta using EXISTS subquery to avoid duplicates
+            $or_clauses[] = "EXISTS (
+                SELECT 1
+                FROM $wpdb->termmeta AS tm
+                WHERE tm.term_id = t.term_id
+                AND (
+                    (tm.meta_key = 'first_name' AND tm.meta_value LIKE '{$esc}%')
+                    OR (tm.meta_key = 'last_name' AND tm.meta_value LIKE '{$esc}%')
+                    OR (tm.meta_key = 'user_email' AND tm.meta_value LIKE '{$esc}%')
+                )
+            )";
+        }
+
+        if (!empty($or_clauses)) {
+            $clauses['where'] .= " AND tt.taxonomy = '{$taxonomy}' AND (" . implode(' OR ', $or_clauses) . ")";
+        }
+
+        if (!empty($clauses['orderby']) && stripos($clauses['fields'], "t.name") === false) {
+            $clauses['fields'] .= ", t.name";
+        }
 
         return $clauses;
     }
@@ -1998,9 +2008,10 @@ class Plugin
             $author_lists       = $legacyPlugin->modules->author_list->options->author_list_data;
             $author_list_data   = isset($author_lists[$attributes['list_id']]) ? $author_lists[$attributes['list_id']] : false;
             if ($author_list_data) {
+                $list_id = $attributes['list_id'];
                 $attributes = $author_list_data['shortcode_args'];
+                $attributes['list_id'] = $list_id;
             }
-
         }
 
         $attributes = wp_parse_args($attributes, $defaults);
@@ -2108,32 +2119,37 @@ class Plugin
         return $capabilities;
     }
 
-        /**
-         * Prevent ACF Extended from modifying authors list and edit page
-         *
-         * @param mixed $value
-         * @return mixed
-         */
-        public function disable_acfe_ui_for_authors($value)
-        {
-            global $current_screen, $pagenow;
+    public function add_ppma_page_query_var($query_vars) {
+        $query_vars[] = 'ppma_page';
+        return $query_vars;
+    }
 
-            if (!is_admin()) {
-                return $value;
-            }
+    /**
+     * Prevent ACF Extended from modifying authors list and edit page
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    public function disable_acfe_ui_for_authors($value)
+    {
+        global $current_screen, $pagenow;
 
-            if (!in_array($pagenow, ['edit-tags.php', 'term.php'])) {
-                return $value;
-            }
-
-            $screen_taxonomy = $current_screen ? $current_screen->taxonomy : '';
-
-            $taxonomy = isset($_GET['taxonomy']) ? sanitize_key($_GET['taxonomy']) : $screen_taxonomy;
-
-            if ($taxonomy === 'author') {
-                return false;
-            }
-
+        if (!is_admin()) {
             return $value;
         }
+
+        if (!in_array($pagenow, ['edit-tags.php', 'term.php'])) {
+            return $value;
+        }
+
+        $screen_taxonomy = $current_screen ? $current_screen->taxonomy : '';
+
+        $taxonomy = isset($_GET['taxonomy']) ? sanitize_key($_GET['taxonomy']) : $screen_taxonomy;
+
+        if ($taxonomy === 'author') {
+            return false;
+        }
+
+        return $value;
+    }
 }
