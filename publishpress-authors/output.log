@@ -1,0 +1,90 @@
+Running php-build composer
+
+WARNING! Your credentials are stored unencrypted in '/home/runner/.docker/config.json'.
+Configure a credential helper to remove this warning. See
+https://docs.docker.com/go/credential-store/
+
+Login Succeeded
+Pulling docker.pkg.github.com/publishpress/publishpress-authors/php-actions_composer_publishpress-authors:php-8.4-zip-mysqli-build2.1.0
+php-8.4-zip-mysqli-build2.1.0: Pulling from publishpress/publishpress-authors/php-actions_composer_publishpress-authors
+589002ba0eae: Already exists
+7217e707b959: Pulling fs layer
+eaca43c12286: Pulling fs layer
+4ac517bd0797: Pulling fs layer
+24d2a4a6f6dd: Pulling fs layer
+21c4debc94ec: Pulling fs layer
+67886838fa02: Pulling fs layer
+2ffe46bad7c5: Pulling fs layer
+07ad488b377f: Pulling fs layer
+68a9d54b7a82: Pulling fs layer
+23cec18d3ce9: Pulling fs layer
+36289e1bce70: Pulling fs layer
+d8af96304a2f: Pulling fs layer
+24d2a4a6f6dd: Waiting
+21c4debc94ec: Waiting
+67886838fa02: Waiting
+2ffe46bad7c5: Waiting
+07ad488b377f: Waiting
+68a9d54b7a82: Waiting
+23cec18d3ce9: Waiting
+36289e1bce70: Waiting
+d8af96304a2f: Waiting
+4ac517bd0797: Verifying Checksum
+4ac517bd0797: Download complete
+7217e707b959: Verifying Checksum
+7217e707b959: Download complete
+21c4debc94ec: Verifying Checksum
+21c4debc94ec: Download complete
+24d2a4a6f6dd: Verifying Checksum
+24d2a4a6f6dd: Download complete
+67886838fa02: Verifying Checksum
+67886838fa02: Download complete
+2ffe46bad7c5: Verifying Checksum
+2ffe46bad7c5: Download complete
+7217e707b959: Pull complete
+07ad488b377f: Download complete
+68a9d54b7a82: Verifying Checksum
+68a9d54b7a82: Download complete
+36289e1bce70: Verifying Checksum
+36289e1bce70: Download complete
+23cec18d3ce9: Verifying Checksum
+23cec18d3ce9: Download complete
+d8af96304a2f: Verifying Checksum
+d8af96304a2f: Download complete
+eaca43c12286: Verifying Checksum
+eaca43c12286: Download complete
+eaca43c12286: Pull complete
+4ac517bd0797: Pull complete
+24d2a4a6f6dd: Pull complete
+21c4debc94ec: Pull complete
+67886838fa02: Pull complete
+2ffe46bad7c5: Pull complete
+07ad488b377f: Pull complete
+68a9d54b7a82: Pull complete
+23cec18d3ce9: Pull complete
+36289e1bce70: Pull complete
+d8af96304a2f: Pull complete
+Digest: sha256:9db0ac12f4c648c29580652ea0807bb7d52254d5c71a67593a0161aa5a2a3d39
+Status: Downloaded newer image for docker.pkg.github.com/publishpress/publishpress-authors/php-actions_composer_publishpress-authors:php-8.4-zip-mysqli-build2.1.0
+docker.pkg.github.com/publishpress/publishpress-authors/php-actions_composer_publishpress-authors:php-8.4-zip-mysqli-build2.1.0
+Docker tag: docker.pkg.github.com/publishpress/publishpress-authors/php-actions_composer_publishpress-authors:php-8.4-zip-mysqli-build2.1.0
+No private keys supplied
+Command: composer validate --no-interaction
+Skipping env variable PWD
+Skipping env variable HOME
+Skipping env variable SHLVL
+Skipping env variable PATH
+Running php-build composer
+Login Succeeded
+Pulling docker.pkg.github.com/publishpress/publishpress-authors/php-actions_composer_publishpress-authors:php-8.4-zip-mysqli-build2.1.0
+php-8.4-zip-mysqli-build2.1.0: Pulling from publishpress/publishpress-authors/php-actions_composer_publishpress-authors
+Digest: sha256:9db0ac12f4c648c29580652ea0807bb7d52254d5c71a67593a0161aa5a2a3d39
+Status: Image is up to date for docker.pkg.github.com/publishpress/publishpress-authors/php-actions_composer_publishpress-authors:php-8.4-zip-mysqli-build2.1.0
+docker.pkg.github.com/publishpress/publishpress-authors/php-actions_composer_publishpress-authors:php-8.4-zip-mysqli-build2.1.0
+Docker tag: docker.pkg.github.com/publishpress/publishpress-authors/php-actions_composer_publishpress-authors:php-8.4-zip-mysqli-build2.1.0
+No private keys supplied
+Command: composer install --no-progress --no-interaction
+Skipping env variable PWD
+Skipping env variable HOME
+Skipping env variable SHLVL
+Skipping env variable PATH

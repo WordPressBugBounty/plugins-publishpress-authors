@@ -497,6 +497,6 @@
             "install-path": "../publishpress/wordpress-version-notices"
         }
     ],
-    "dev": true,
+    "dev": false,
     "dev-package-names": []
 }
